@@ -1,0 +1,47 @@
+name: Real-Time Wealth Monitor
+
+on:
+  schedule:
+    # Runs every 15 minutes from 8:00 AM to 4:45 PM UTC (adjust for your timezone)
+    # Monday to Friday, excluding federal holidays
+    - cron: '*/15 13-21 * * 1-5'
+  
+  # Allows you to run this workflow manually from the Actions tab for testing
+  workflow_dispatch:
+
+jobs:
+  build-and-monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip' # Caches dependencies to speed up runs
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Check if federal holiday
+        run: |
+          today=$(date +%Y-%m-%d)
+          holidays=("2025-01-01" "2025-01-20" "2025-02-17" "2025-05-26" "2025-06-19" "2025-07-04" "2025-09-01" "2025-10-13" "2025-11-11" "2025-11-27" "2025-12-25")
+          if [[ " ${holidays[@]} " =~ " $today " ]]; then
+            echo "Today is a federal holiday. Skipping run."
+            exit 0
+          fi
+
+      - name: Run Wealth Monitor Script
+        env:
+          # MAP YOUR SECRETS HERE
+          # Go to Settings > Secrets and variables > Actions > New repository secret
+          TG_TOKEN: ${{ secrets.TG_TOKEN }} 
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          python src/real_time_monitor.py
