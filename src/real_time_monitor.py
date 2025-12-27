@@ -60,96 +60,89 @@ def monitor_market():
     # Dictionary to track the last time we sent an alert (to prevent spam)
     last_alert_time = {}
 
-    while True:
-        try:
-            clear_output(wait=True)
-            current_time = time.strftime('%Y-%m-%d %H:%M:%S')
-            print(f"📡 REAL-TIME WEALTH MONITOR | {current_time}")
-            print("=" * 55)
 
-            for group_name, tickers in PORTFOLIO.items():
-                print(f"\n🔹 {group_name}")
-                for ticker in tickers:
-                    try:
-                        # Fetch live data (1 minute intervals for precision)
-                        stock = yf.Ticker(ticker)
-                        hist = stock.history(period="1d", interval="1m")
+    # In CI, run single iteration and exit
+    try:
+        clear_output(wait=True)
+        current_time = time.strftime('%Y-%m-%d %H:%M:%S')
+        print(f"📡 REAL-TIME WEALTH MONITOR | {current_time}")
+        print("=" * 55)
 
-                        if hist.empty:
-                            print(f"   {ticker:<5}: [Market Closed / No Data]")
-                            continue
+        for group_name, tickers in PORTFOLIO.items():
+            print(f"\n🔹 {group_name}")
+            for ticker in tickers:
+                try:
+                    # Fetch live data (1 minute intervals for precision)
+                    stock = yf.Ticker(ticker)
+                    hist = stock.history(period="1d", interval="1m")
 
-                        price = hist['Close'].iloc[-1]
+                    if hist.empty:
+                        print(f"   {ticker:<5}: [Market Closed / No Data]")
+                        continue
 
-                        # Get previous close to calculate % change
-                        prev_close = stock.info.get('previousClose', price)
-                        # Fallback if API misses prev_close
-                        if prev_close is None or prev_close == 0:
-                            prev_close = hist['Open'].iloc[0]
+                    price = hist['Close'].iloc[-1]
 
-                        change_pct = ((price - prev_close) / prev_close) * 100
+                    # Get previous close to calculate % change
+                    prev_close = stock.info.get('previousClose', price)
+                    # Fallback if API misses prev_close
+                    if prev_close is None or prev_close == 0:
+                        prev_close = hist['Open'].iloc[0]
 
-                        # --- ALERT LOGIC ---
-                        alert_triggered = False
-                        alert_text = ""
+                    change_pct = ((price - prev_close) / prev_close) * 100
 
-                        # 1. Check Custom Strategy Rules
-                        if ticker in THRESHOLDS:
-                            rule = THRESHOLDS[ticker]
+                    # --- ALERT LOGIC ---
+                    alert_triggered = False
+                    alert_text = ""
 
-                            if rule["type"] == "bearish" and price < rule["level"]:
-                                alert_text = f"{rule['msg']} Price: ${price:.2f}"
-                                alert_triggered = True
+                    # 1. Check Custom Strategy Rules
+                    if ticker in THRESHOLDS:
+                        rule = THRESHOLDS[ticker]
 
-                            elif rule["type"] == "support" and price < rule["level"]:
-                                alert_text = f"{rule['msg']} Price: ${price:.2f}"
-                                alert_triggered = True
-
-                            elif rule["type"] == "buy_zone" and price < rule["level"]:
-                                alert_text = f"{rule['msg']} Price: ${price:.2f}"
-                                alert_triggered = True
-
-                            elif rule["type"] == "breakout" and price > rule["level"]:
-                                alert_text = f"{rule['msg']} Price: ${price:.2f}"
-                                alert_triggered = True
-
-                            elif rule["type"] == "volatility" and abs(change_pct) > rule["percent"]:
-                                alert_text = f"{rule['msg']} Move: {change_pct:+.2f}%"
-                                alert_triggered = True
-
-                        # 2. Check General Volatility (for stocks like NVDA/TSLA)
-                        elif abs(change_pct) > GENERAL_VOLATILITY_LIMIT:
-                            alert_text = f"🔔 {ticker} Moving Fast: ${price:.2f} ({change_pct:+.2f}%)"
+                        if rule["type"] == "bearish" and price < rule["level"]:
+                            alert_text = f"{rule['msg']} Price: ${price:.2f}"
                             alert_triggered = True
 
-                        # --- NOTIFICATION HANDLER ---
-                        status_icon = "  "
-                        color_start = "\033[92m" if change_pct > 0 else "\033[91m" # Green/Red
-                        color_end = "\033[0m"
+                        elif rule["type"] == "support" and price < rule["level"]:
+                            alert_text = f"{rule['msg']} Price: ${price:.2f}"
+                            alert_triggered = True
 
-                        if alert_triggered:
-                            status_icon = "🔥"
-                            # Anti-Spam: Only alert once every 60 minutes per stock
-                            if time.time() - last_alert_time.get(ticker, 0) > 3600:
-                                # send_telegram(alert_text)
-                                last_alert_time[ticker] = time.time()
-                                status_icon = "📤" # Indicates message sent
+                        elif rule["type"] == "buy_zone" and price < rule["level"]:
+                            alert_text = f"{rule['msg']} Price: ${price:.2f}"
+                            alert_triggered = True
 
-                        print(f" {status_icon} {ticker:<5}: {color_start}${price:>7.2f} ({change_pct:>+6.2f}%){color_end}")
+                        elif rule["type"] == "breakout" and price > rule["level"]:
+                            alert_text = f"{rule['msg']} Price: ${price:.2f}"
+                            alert_triggered = True
 
-                    except Exception as e:
-                        print(f"   {ticker:<5}: Error")
+                        elif rule["type"] == "volatility" and abs(change_pct) > rule["percent"]:
+                            alert_text = f"{rule['msg']} Move: {change_pct:+.2f}%"
+                            alert_triggered = True
 
-            print("\n" + "=" * 55)
-            print("SLEEPING... (Updates every 60 seconds)")
-            time.sleep(60)
+                    # 2. Check General Volatility (for stocks like NVDA/TSLA)
+                    elif abs(change_pct) > GENERAL_VOLATILITY_LIMIT:
+                        alert_text = f"🔔 {ticker} Moving Fast: ${price:.2f} ({change_pct:+.2f}%)"
+                        alert_triggered = True
 
-        except KeyboardInterrupt:
-            print("Stopped by user.")
-            break
-        except Exception as e:
-            print(f"Global Error: {e}")
-            time.sleep(10)
+                    # --- NOTIFICATION HANDLER ---
+                    status_icon = "  "
+                    color_start = "\033[92m" if change_pct > 0 else "\033[91m" # Green/Red
+                    color_end = "\033[0m"
 
-# Run the monitor
-monitor_market()
+                    if alert_triggered:
+                        status_icon = "🔥"
+                        # Anti-Spam: Only alert once every 60 minutes per stock
+                        if time.time() - last_alert_time.get(ticker, 0) > 3600:
+                            send_telegram(alert_text)
+                            last_alert_time[ticker] = time.time()
+                            status_icon = "📤" # Indicates message sent
+
+                    print(f" {status_icon} {ticker:<5}: {color_start}${price:>7.2f} ({change_pct:>+6.2f}%){color_end}")
+
+                except Exception as e:
+                    print(f"   {ticker:<5}: Error")
+
+        print("\n" + "=" * 55)
+        print("CI run completed.")
+    except Exception as e:
+        print(f"Global Error: {e}")
+    return
