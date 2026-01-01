@@ -21,10 +21,9 @@ TG_CHAT_ID = os.getenv("TG_CHAT_ID")
 # ==========================================
 # Grouping your watchlist for clearer display
 PORTFOLIO = {
-    "Compute Core":    ["NVDA", "AMD", "AVGO", "MRVL"],
-    "Auto & Power":    ["TSLA", "VST", "IREN"],
-    "Connectivity":    ["ALAB", "CRDO", "LITE", "NBIS"],
-    "High Risk/Drone": ["RCAT", "AVAV", "ONDS"]
+    "Indexes":    ["QQQ"],
+    "Foundation":    ["NVDA", "AMZN", "HOOD", "GOOG", "MSFT", "VST"],
+    "AI Topic":  ["TSLA", "MRVL", "ALAB", "CRDO", "MU", "RCAT", "ONDS", "IREN", "NBIS"]
 }
 
 # Specific "Tech Pro" Wealth Rules we designed
@@ -36,8 +35,12 @@ THRESHOLDS = {
     "RCAT": {"type": "volatility","percent": 5.0, "msg": "🔥 RCAT ALERT: High Volatility (>5%) Detected!"}
 }
 
-# General alert threshold for all other stocks (e.g., NVDA jumps 3%)
-GENERAL_VOLATILITY_LIMIT = 3.0
+# Volatility thresholds per portfolio group (for stocks without specific rules)
+GROUP_VOLATILITY_THRESHOLDS = {
+    "Indexes": 2.0,      # Lower threshold for stable indexes
+    "Foundation": 5.0,   # Standard for core holdings
+    "AI Topic": 8.0,     # Higher for volatile AI stocks
+}
 
 # ==========================================
 # 3. MONITORING ENGINE
@@ -94,33 +97,9 @@ def monitor_market():
                     alert_triggered = False
                     alert_text = ""
 
-                    # 1. Check Custom Strategy Rules
-                    if ticker in THRESHOLDS:
-                        rule = THRESHOLDS[ticker]
-
-                        if rule["type"] == "bearish" and price < rule["level"]:
-                            alert_text = f"{rule['msg']} Price: ${price:.2f}"
-                            alert_triggered = True
-
-                        elif rule["type"] == "support" and price < rule["level"]:
-                            alert_text = f"{rule['msg']} Price: ${price:.2f}"
-                            alert_triggered = True
-
-                        elif rule["type"] == "buy_zone" and price < rule["level"]:
-                            alert_text = f"{rule['msg']} Price: ${price:.2f}"
-                            alert_triggered = True
-
-                        elif rule["type"] == "breakout" and price > rule["level"]:
-                            alert_text = f"{rule['msg']} Price: ${price:.2f}"
-                            alert_triggered = True
-
-                        elif rule["type"] == "volatility" and abs(change_pct) > rule["percent"]:
-                            alert_text = f"{rule['msg']} Move: {change_pct:+.2f}%"
-                            alert_triggered = True
-
-                    # 2. Check General Volatility (for stocks like NVDA/TSLA)
-                    elif abs(change_pct) > GENERAL_VOLATILITY_LIMIT:
-                        alert_text = f"🔔 {ticker} Moving Fast: ${price:.2f} ({change_pct:+.2f}%)"
+                    group_threshold = GROUP_VOLATILITY_THRESHOLDS.get(group_name)
+                    if abs(change_pct) >= group_threshold:
+                        alert_text = f"🔔 {ticker} Alert: High Volativity ${price:.2f} ({change_pct:+.2f}%)"
                         alert_triggered = True
 
                     # --- NOTIFICATION HANDLER ---
@@ -130,8 +109,8 @@ def monitor_market():
 
                     if alert_triggered:
                         status_icon = "🔥"
-                        # Anti-Spam: Only alert once every 60 minutes per stock
-                        if time.time() - last_alert_time.get(ticker, 0) > 3600:
+                        # Anti-Spam: Only alert once every 4 hours per stock
+                        if time.time() - last_alert_time.get(ticker, 0) > 4*3600:
                             send_telegram(alert_text)
                             last_alert_time[ticker] = time.time()
                             status_icon = "📤" # Indicates message sent
