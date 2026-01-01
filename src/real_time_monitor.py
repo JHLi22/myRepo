@@ -1,7 +1,14 @@
+import warnings
+warnings.simplefilter('ignore')
+
 import os
+import urllib3
+urllib3.disable_warnings()
+
 import yfinance as yf
 import requests
 import time
+import datetime
 from IPython.display import clear_output
 from dotenv import load_dotenv
 
@@ -58,8 +65,71 @@ def send_telegram(message):
     except Exception as e:
         print(f"   [Error] Could not send Telegram: {e}")
 
+def is_federal_holiday():
+    """Check if today is a US federal holiday."""
+    today = datetime.date.today()
+    year = today.year
+    holidays = []
+    # New Year
+    holidays.append(datetime.date(year, 1, 1))
+    # MLK Day: 3rd Monday in January
+    jan_1 = datetime.date(year, 1, 1)
+    jan_1_weekday = jan_1.weekday()
+    days_to_first_monday = (0 - jan_1_weekday) % 7
+    first_monday = jan_1 + datetime.timedelta(days=days_to_first_monday)
+    mlk = first_monday + datetime.timedelta(days=14)
+    holidays.append(mlk)
+    # Washington's Birthday: 3rd Monday in February
+    feb_1 = datetime.date(year, 2, 1)
+    feb_1_weekday = feb_1.weekday()
+    days_to_first_monday_feb = (0 - feb_1_weekday) % 7
+    first_monday_feb = feb_1 + datetime.timedelta(days=days_to_first_monday_feb)
+    washington = first_monday_feb + datetime.timedelta(days=14)
+    holidays.append(washington)
+    # Memorial Day: Last Monday in May
+    may_31 = datetime.date(year, 5, 31)
+    may_31_weekday = may_31.weekday()
+    days_back_to_monday = (may_31_weekday - 0) % 7
+    memorial = may_31 - datetime.timedelta(days=days_back_to_monday)
+    holidays.append(memorial)
+    # Juneteenth
+    holidays.append(datetime.date(year, 6, 19))
+    # Independence Day
+    holidays.append(datetime.date(year, 7, 4))
+    # Labor Day: 1st Monday in September
+    sep_1 = datetime.date(year, 9, 1)
+    sep_1_weekday = sep_1.weekday()
+    days_to_first_monday_sep = (0 - sep_1_weekday) % 7
+    labor = sep_1 + datetime.timedelta(days=days_to_first_monday_sep)
+    holidays.append(labor)
+    # Columbus Day: 2nd Monday in October
+    oct_1 = datetime.date(year, 10, 1)
+    oct_1_weekday = oct_1.weekday()
+    days_to_first_monday_oct = (0 - oct_1_weekday) % 7
+    first_monday_oct = oct_1 + datetime.timedelta(days=days_to_first_monday_oct)
+    columbus = first_monday_oct + datetime.timedelta(days=7)
+    holidays.append(columbus)
+    # Veterans Day
+    holidays.append(datetime.date(year, 11, 11))
+    # Thanksgiving: 4th Thursday in November
+    nov_1 = datetime.date(year, 11, 1)
+    nov_1_weekday = nov_1.weekday()
+    days_to_first_thursday = (3 - nov_1_weekday) % 7
+    first_thursday = nov_1 + datetime.timedelta(days=days_to_first_thursday)
+    thanksgiving = first_thursday + datetime.timedelta(days=21)
+    holidays.append(thanksgiving)
+    # Christmas
+    holidays.append(datetime.date(year, 12, 25))
+    return today in holidays
+
 def monitor_market():
     print("🚀 2026 Wealth Monitor Initialized...")
+
+    # Check if today is a federal holiday
+    if is_federal_holiday():
+        print('Today is a federal holiday. Skipping.')
+        return
+
     # Dictionary to track the last time we sent an alert (to prevent spam)
     last_alert_time = {}
 
@@ -125,3 +195,7 @@ def monitor_market():
     except Exception as e:
         print(f"Global Error: {e}")
     return
+
+# uncomment below to run the monitor locally
+# if __name__ == "__main__":
+#     monitor_market()
